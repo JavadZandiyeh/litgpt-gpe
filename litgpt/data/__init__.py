@@ -10,6 +10,7 @@ from litgpt.data.json_data import JSON
 from litgpt.data.lima import LIMA
 from litgpt.data.lit_data import LitData
 from litgpt.data.longform import LongForm
+from litgpt.data.molhiv import MolHIV
 from litgpt.data.microllama import MicroLlama
 from litgpt.data.openwebtext import OpenWebText
 from litgpt.data.text_files import TextFiles
@@ -27,6 +28,7 @@ __all__ = [
     "LitData",
     "DataModule",
     "LongForm",
+    "MolHIV",
     "OpenWebText",
     "SFTDataset",
     "TextFiles",

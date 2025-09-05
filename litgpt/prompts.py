@@ -372,6 +372,17 @@ class OLMo(PromptStyle):
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
 
 
+class HIVMolecule2Activity(PromptStyle):
+    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+        prompt_style = "<HIVMolecule-to-Activity>\n"
+        prompt_style += "[Task: HIVMolecule-to-Activity]\n"
+        prompt_style += f"[Instruction] {prompt}\n"
+        prompt_style += "[Input: HIVMolecule]\n"
+        prompt_style += f"{kwargs['input']}\n"
+        prompt_style += "[Output: Text]"
+        return prompt_style
+
+
 class ChatML(PromptStyle):
     def __init__(self, system_message: Optional[str] = None):
         self.system_message = system_message
@@ -444,6 +455,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
     "llama3": Llama3,
     "olmo": OLMo,
+    "hiv-molecule-2-activity": HIVMolecule2Activity,
     "qwen2.5": Qwen2_5,
     "qwen2.5-math": Qwen2_5_Math,
     "qwq": QwQ,
