@@ -71,6 +71,7 @@ def setup(
         epochs=5,
         max_seq_length=None,
         max_time=None,
+        k=20,
     ),
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),

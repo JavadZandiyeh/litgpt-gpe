@@ -3,13 +3,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union
 
-import networkx as nx
-import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 from ogb.graphproppred import PygGraphPropPredDataset
-from pysmiles import read_smiles
 from torch.utils.data import DataLoader
 from torch_geometric.data.data import DataEdgeAttr, DataTensorAttr
 from torch_geometric.data.storage import GlobalStorage
@@ -120,31 +116,3 @@ class MolHIV(DataModule):
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
         )
-
-
-def graph_positional_encoder(smiles: str, n_embd: int, k: int = 20) -> torch.Tensor:
-    hiv_mol = read_smiles(smiles)
-
-    """ Adjacency matrix """
-    A = nx.to_numpy_array(hiv_mol, dtype=int)  # (n, n)
-    n = A.shape[0]  # number of graph nodes
-    """ Symmetric adjacency matrix """
-    A_S = A | A.T  # (n, n)
-    """ Symmetric out-degree matrix """
-    D_S = np.diag(A_S.sum(axis=1))  # (n, n)
-    """ Symmetric normalized Laplacian """
-    D_S_inv_sqrt = np.diag(np.clip(np.diag(D_S), 1e-12, None) ** (-1 / 2))  # (n, n)
-    L_S = np.eye(n) - D_S_inv_sqrt @ A_S @ D_S_inv_sqrt  # (n, n)
-    """ Eigen-decomposition of the symmetric normalized Laplacian """
-    _, U = np.linalg.eigh(L_S)  # (n, n)
-    """ Node-level positional encoding """
-    k = min(k, n)
-    Phi = U[:, :k]  # (n, k)
-    PE = np.hstack((Phi.real, Phi.imag))  # (n, 2k)
-    """ HIV graph positional encoding"""
-    MLP = nn.Sequential(nn.Linear(2 * k, n_embd), nn.GELU())
-
-    PE = torch.from_numpy(PE).float()  # (2k, n)
-    HivPE = MLP(PE)  # (n, n_embd)
-
-    return HivPE
