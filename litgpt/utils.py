@@ -869,30 +869,30 @@ def create_finetuning_performance_report(training_time, token_counts, device_typ
 def select_sft_generate_example(eval, data):
     if eval.evaluate_example == "first":
         if len(data.test_dataset.data):
-            instruction = data.test_dataset.data[0]["instruction"]
+            example = data.test_dataset.data[0]
         else:
-            instruction = data.train_dataset.data[0]["instruction"]
+            example = data.train_dataset.data[0]
 
     elif eval.evaluate_example == "random":
         if len(data.test_dataset.data):
             random_idx = random.randint(0, len(data.test_dataset.data) - 1)
-            instruction = data.test_dataset.data[random_idx]["instruction"]
+            example = data.test_dataset.data[random_idx]
         else:
             random_idx = random.randint(0, len(data.train_dataset.data) - 1)
-            instruction = data.train_dataset.data[random_idx]["instruction"]
+            example = data.train_dataset.data[random_idx]
 
     elif isinstance(eval.evaluate_example, int):
         index = eval.evaluate_example
         if len(data.test_dataset.data) > index:
-            instruction = data.test_dataset.data[index]["instruction"]
+            example = data.test_dataset.data[index]
         elif len(data.train_dataset.data) > index:
-            instruction = data.train_dataset.data[index]["instruction"]
+            example = data.train_dataset.data[index]
         else:
             raise IndexError(f"Index {index} is out of range for both test and training datasets.")
 
     else:
         raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
-    return instruction
+    return example
 
 
 def _RunIf(thunder: bool = False, **kwargs):

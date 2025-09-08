@@ -409,9 +409,11 @@ def validate(
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule):
-    instruction = select_sft_generate_example(eval, data)
+    example = select_sft_generate_example(eval, data)
+    instruction = example["instruction"]
+
     fabric.print(instruction)
-    prompt = data.prompt_style.apply(instruction)
+    prompt = data.prompt_style.apply(prompt=instruction, **example)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     model.eval()
 
