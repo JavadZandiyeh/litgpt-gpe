@@ -33,6 +33,7 @@ class MolHIV(DataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     n_embd: int = field(default=None, init=False, repr=False)
     k: int = field(default=None, init=False, repr=False)
 
@@ -84,11 +85,11 @@ class MolHIV(DataModule):
         split_dirt = f"{self.download_dir}/split/scaffold"
         train_idx = pd.read_csv(f"{split_dirt}/train.csv.gz").squeeze("columns").values
         valid_idx = pd.read_csv(f"{split_dirt}/valid.csv.gz").squeeze("columns").values
-        # test_idx = pd.read_csv(f"{split_dirt}/test.csv.gz").squeeze("columns").values
+        test_idx = pd.read_csv(f"{split_dirt}/test.csv.gz").squeeze("columns").values
 
         train_data = [data[i] for i in train_idx if is_valid_smiles(data[i]["linearized_graph"])]
         val_data = [data[i] for i in valid_idx if is_valid_smiles(data[i]["linearized_graph"])]
-        # test_data = [data[i] for i in test_idx if is_valid_smiles(data[i]["linearized_graph"])]
+        test_data = [data[i] for i in test_idx if is_valid_smiles(data[i]["linearized_graph"])]
 
         self.train_dataset = SFTDataset(
             data=train_data,
@@ -112,6 +113,17 @@ class MolHIV(DataModule):
             k=self.k,
         )
 
+        self.test_dataset = SFTDataset(
+            data=test_data,
+            tokenizer=self.tokenizer,
+            prompt_style=self.prompt_style,
+            max_seq_length=self.max_seq_length,
+            mask_prompt=self.mask_prompt,
+            ignore_index=self.ignore_index,
+            n_embd=self.n_embd,
+            k=self.k,
+        )
+
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
@@ -125,6 +137,15 @@ class MolHIV(DataModule):
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+        )
+
+    def test_dataloader(self) -> DataLoader:
+        return DataLoader(
+            self.test_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
