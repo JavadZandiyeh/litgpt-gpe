@@ -114,7 +114,8 @@ class SFTDataset(Dataset):
         }
 
         if linearized_graph := example.get("linearized_graph"):
-            item["graph_positional_encodings"] = graph_positional_encoder(linearized_graph, self.n_embd, self.k)
+            p = encoded_prompt_and_response.size(0)  # Total number of tokens
+            item["graph_positional_encodings"] = graph_positional_encoder(linearized_graph, self.n_embd, self.k, p)
 
         return item
 

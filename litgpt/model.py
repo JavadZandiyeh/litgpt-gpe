@@ -86,6 +86,7 @@ class GPT(nn.Module):
         input_pos: Optional[torch.Tensor] = None,
         input_pos_maxp1: Optional[int] = None,
         lm_head_chunk_size: int = 0,
+        graph_positional_encodings: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
         If `input_pos` is provided, the KV cache uses K and V vectors for
@@ -107,6 +108,8 @@ class GPT(nn.Module):
             input_pos_maxp1: Optional. See above.
             lm_head_chunk_size: Optional. If `lm_head_chunk_size > 0`, the final
                 `lm_head` computation is done in chunks of this size.
+            graph_positional_encodings: Optional. Derived from the graph structure
+                in graph-based datasets.
 
         Returns:
             Logit outputs, shape `(B, T, config.padded_vocab_size)`. If
@@ -151,8 +154,12 @@ class GPT(nn.Module):
             input_pos_maxp1 = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
+
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
+
+        if graph_positional_encodings is not None:
+            x += graph_positional_encodings
 
         for block_idx, block in enumerate(self.transformer.h):
             if self.config.rope_indices is not None:

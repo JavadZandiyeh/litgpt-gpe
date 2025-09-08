@@ -930,7 +930,7 @@ def is_valid_smiles(smiles: str) -> bool:
         return False
 
 
-def graph_positional_encoder(smiles: str, n_embd: int, k: int) -> torch.Tensor:
+def graph_positional_encoder(smiles: str, n_embd: int, k: int, p: int) -> torch.Tensor:
     hiv_mol = read_smiles(smiles)
 
     """ Adjacency matrix """
@@ -950,11 +950,13 @@ def graph_positional_encoder(smiles: str, n_embd: int, k: int) -> torch.Tensor:
     Phi = U[:, :k]  # (n, k)
     PE = np.hstack((Phi.real, Phi.imag))  # (n, 2k)
     """ HIV graph positional encoding"""
-    MLP = nn.Sequential(nn.Linear(2 * k, n_embd), nn.GELU())
+    PE = torch.from_numpy(PE).float()  # (n, 2k)
 
-    PE = torch.from_numpy(PE).float()  # (2k, n)
-
+    MLP1 = nn.Sequential(nn.Linear(2*k, n_embd), nn.GELU())
+    MLP2 = nn.Sequential(nn.Linear(n, p), nn.GELU())
     with torch.no_grad():  # forward pass without tracking
-        HivPE = MLP(PE)  # (n, n_embd)
+        HivPE = MLP1(PE)  # (n, n_embd)
+        HivPE = MLP2(HivPE.T).T  # (p, n_emb)
+    HivPE = HivPE.detach()
 
-    return HivPE.detach()
+    return HivPE

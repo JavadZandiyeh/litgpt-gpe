@@ -1,0 +1,4 @@
+torch_geometric
+ogb~=1.3.6
+networkx~=3.5
+pysmiles~=2.0.0
