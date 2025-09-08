@@ -24,7 +24,6 @@ class MolHIV(DataModule):
     seed: int = 42
     num_workers: int = 4
     include_multiturn_conversations: bool = False
-
     ogb_name: str = 'ogbg-molhiv'
     ogb_root: str = 'data'
     download_dir: Path = Path(f"./{ogb_root}/{ogb_name.replace("-", "_")}")
@@ -47,8 +46,8 @@ class MolHIV(DataModule):
         tokenizer: Optional[Tokenizer] = None,
         batch_size: int = 1,
         max_seq_length: Optional[int] = None,
-        n_embd: Optional[int] = None,
-        k: Optional[int] = None,
+        n_embd: int = 1024,
+        k: int = 20,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size

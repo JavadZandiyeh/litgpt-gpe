@@ -18,7 +18,11 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
-from litgpt.data import Alpaca, DataModule
+from litgpt.data import (
+    DataModule,
+    Alpaca,
+    MolHIV,
+)
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
@@ -71,7 +75,6 @@ def setup(
         epochs=5,
         max_seq_length=None,
         max_time=None,
-        k=20,
     ),
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
@@ -502,13 +505,18 @@ def get_dataloaders(
     train: TrainArgs,
     config: Config,
 ) -> Tuple[DataLoader, DataLoader]:
-    data.connect(
-        tokenizer=tokenizer,
-        batch_size=train.micro_batch_size,
-        max_seq_length=train.max_seq_length,
-        n_embd=config.n_embd,
-        k=train.k
-    )
+    kwargs = {
+        "tokenizer": tokenizer,
+        "batch_size": train.micro_batch_size,
+        "max_seq_length": train.max_seq_length,
+    }
+    if isinstance(data, MolHIV):  # Adding arguments related to specific datasets
+        kwargs["n_embd"] = config.n_embd
+        if isinstance(train.k, int) and train.k > 0:
+            kwargs["k"] = train.k
+
+    data.connect(**kwargs)
+
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()

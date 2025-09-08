@@ -114,10 +114,7 @@ class SFTDataset(Dataset):
         }
 
         if linearized_graph := example.get("linearized_graph"):
-            with torch.no_grad():
-                gpe = graph_positional_encoder(linearized_graph, self.n_embd, self.k)
-            gpe = gpe.detach().cpu()
-            item["graph_positional_encodings"] = gpe
+            item["graph_positional_encodings"] = graph_positional_encoder(linearized_graph, self.n_embd, self.k)
 
         return item
 
