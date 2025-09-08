@@ -197,7 +197,7 @@ def main(
     validate_args(train, eval)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, config)
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices, num_nodes)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
@@ -347,6 +347,7 @@ def fit(
             fabric.print(f"Max time ({max_time / 60.0:.2f}m) reached, stopping training...")
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
+        graph_positional_encodings = batch.get("graph_positional_encodings")
 
         is_accumulating = iter_num % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -495,9 +496,19 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
+    fabric: L.Fabric,
+    data: DataModule,
+    tokenizer: Tokenizer,
+    train: TrainArgs,
+    config: Config,
 ) -> Tuple[DataLoader, DataLoader]:
-    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
+    data.connect(
+        tokenizer=tokenizer,
+        batch_size=train.micro_batch_size,
+        max_seq_length=train.max_seq_length,
+        n_embd=config.n_embd,
+        k=train.k
+    )
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()

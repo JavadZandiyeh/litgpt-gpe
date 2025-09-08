@@ -378,7 +378,7 @@ class HIVMolecule2Activity(PromptStyle):
         prompt_style += "[Task: HIVMolecule-to-Activity]\n"
         prompt_style += f"[Instruction] {prompt}\n"
         prompt_style += "[Input: HIVMolecule]\n"
-        prompt_style += f"{kwargs['input']}\n"
+        prompt_style += f"{kwargs["linearized_graph"]}\n"
         prompt_style += "[Output: Text]"
         return prompt_style
 

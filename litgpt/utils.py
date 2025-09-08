@@ -922,7 +922,15 @@ def kill_process_tree(pid: int):
         pass  # Process already exited
 
 
-def graph_positional_encoder(smiles: str, n_embd: int, k: int = 20) -> torch.Tensor:
+def is_valid_smiles(smiles: str) -> bool:
+    try:
+        read_smiles(smiles, strict=True)
+        return True
+    except (KeyError, ValueError):
+        return False
+
+
+def graph_positional_encoder(smiles: str, n_embd: int, k: int) -> torch.Tensor:
     hiv_mol = read_smiles(smiles)
 
     """ Adjacency matrix """
@@ -945,6 +953,8 @@ def graph_positional_encoder(smiles: str, n_embd: int, k: int = 20) -> torch.Ten
     MLP = nn.Sequential(nn.Linear(2 * k, n_embd), nn.GELU())
 
     PE = torch.from_numpy(PE).float()  # (2k, n)
-    HivPE = MLP(PE)  # (n, n_embd)
 
-    return HivPE
+    with torch.no_grad():  # forward pass without tracking
+        HivPE = MLP(PE)  # (n, n_embd)
+
+    return HivPE.detach()

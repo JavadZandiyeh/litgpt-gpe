@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
+from litgpt.utils import graph_positional_encoder
 
 
 class DataModule(LightningDataModule):
@@ -17,7 +18,12 @@ class DataModule(LightningDataModule):
 
     @abstractmethod
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
+        n_embd: Optional[int] = None,
+        k: Optional[int] = None,
     ) -> None:
         """All settings that can't be determined at the time of instantiation need to be passed through here
         before any dataloaders can be accessed.
@@ -60,6 +66,8 @@ class SFTDataset(Dataset):
         mask_prompt: bool = True,
         ignore_index: int = -100,
         transform: Optional[Callable[[Any], Any]] = None,
+        n_embd: Optional[int] = None,
+        k: Optional[int] = None,
     ) -> None:
         self.data = data
         self.tokenizer = tokenizer
@@ -70,6 +78,8 @@ class SFTDataset(Dataset):
         self.mask_prompt = mask_prompt
         self.ignore_index = ignore_index
         self.transform = transform
+        self.n_embd = n_embd
+        self.k = k
 
     def __len__(self) -> int:
         return len(self.data)
@@ -94,7 +104,7 @@ class SFTDataset(Dataset):
             encoded_response
         )
 
-        return {
+        item = {
             "input_ids": encoded_prompt_and_response,
             "labels": labels,
             "token_counts": {
@@ -102,6 +112,14 @@ class SFTDataset(Dataset):
                 "raw_plus_prompt_template": len(encoded_prompt_and_response),
             },
         }
+
+        if linearized_graph := example.get("linearized_graph"):
+            with torch.no_grad():
+                gpe = graph_positional_encoder(linearized_graph, self.n_embd, self.k)
+            gpe = gpe.detach().cpu()
+            item["graph_positional_encodings"] = gpe
+
+        return item
 
 
 def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100):
@@ -129,6 +147,13 @@ def _sft_collate_fn(
         # Truncate if needed
         if max_seq_length > 0:
             batched[key] = batched[key][:, :max_seq_length]
+
+    try:
+        batched["graph_positional_encodings"] = torch.nn.utils.rnn.pad_sequence(
+            [sample["graph_positional_encodings"] for sample in samples], batch_first=True, padding_value=pad_id
+        )
+    except KeyError:  # In cases where the dataset doesn’t have graph_positional_encodings
+        pass
 
     batched["token_counts"] = {}
     batched["token_counts"]["raw"] = torch.tensor(  # Token count without padding and without prompt template

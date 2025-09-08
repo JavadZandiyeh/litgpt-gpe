@@ -13,6 +13,7 @@ from torch_geometric.data.storage import GlobalStorage
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
+from litgpt.utils import is_valid_smiles
 
 
 @dataclass
@@ -33,6 +34,8 @@ class MolHIV(DataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    n_embd: int = field(default=None, init=False, repr=False)
+    k: int = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__init__()
@@ -40,11 +43,18 @@ class MolHIV(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
+        n_embd: Optional[int] = None,
+        k: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = -1 if max_seq_length is None else max_seq_length
+        self.n_embd = n_embd
+        self.k = k
 
     def prepare_data(self) -> None:
         torch.serialization.add_safe_globals([DataEdgeAttr])
@@ -60,7 +70,7 @@ class MolHIV(DataModule):
         list_data = [
             {
                 "instruction": "Classify the provided HIV molecule into \"active\" or \"inactive\"",
-                "input": smile,
+                "linearized_graph": smile,
                 "output": activity
             }
             for smile, activity in zip(smiles, activities)
@@ -77,8 +87,9 @@ class MolHIV(DataModule):
         valid_idx = pd.read_csv(f"{split_dirt}/valid.csv.gz").squeeze("columns").values
         # test_idx = pd.read_csv(f"{split_dirt}/test.csv.gz").squeeze("columns").values
 
-        train_data = [data[i] for i in train_idx]
-        val_data = [data[i] for i in valid_idx]
+        train_data = [data[i] for i in train_idx if is_valid_smiles(data[i]["linearized_graph"])]
+        val_data = [data[i] for i in valid_idx if is_valid_smiles(data[i]["linearized_graph"])]
+        # test_data = [data[i] for i in test_idx if is_valid_smiles(data[i]["linearized_graph"])]
 
         self.train_dataset = SFTDataset(
             data=train_data,
@@ -87,6 +98,8 @@ class MolHIV(DataModule):
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            n_embd=self.n_embd,
+            k=self.k,
         )
 
         self.val_dataset = SFTDataset(
@@ -96,6 +109,8 @@ class MolHIV(DataModule):
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            n_embd=self.n_embd,
+            k=self.k,
         )
 
     def train_dataloader(self) -> DataLoader:
