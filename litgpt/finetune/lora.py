@@ -28,6 +28,7 @@ from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
+from litgpt.utils import graph_positional_encoder
 from litgpt.utils import (
     CycleIterator,
     auto_download_checkpoint,
@@ -342,11 +343,11 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         if train_iterator.epoch >= train.epochs:
-            generate_example(fabric, model, tokenizer, eval, data)
+            generate_example(fabric, model, tokenizer, eval, data, train)
             fabric.print(f"Number of epochs {train.epochs} reached, stopping training...")
             break
         if iter_t0 - total_t0 > max_time:
-            generate_example(fabric, model, tokenizer, eval, data)
+            generate_example(fabric, model, tokenizer, eval, data, train)
             fabric.print(f"Max time ({max_time / 60.0:.2f}m) reached, stopping training...")
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
@@ -406,7 +407,7 @@ def fit(
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, eval)
-            generate_example(fabric, model, tokenizer, eval, data)
+            generate_example(fabric, model, tokenizer, eval, data, train)
             t1 = time.perf_counter() - t0
 
             val_loss_tensor = val_loss.detach().clone().to(fabric.device)
@@ -464,13 +465,23 @@ def validate(
 
 
 @torch.no_grad()
-def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule):
+def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule, train: TrainArgs):
     example = select_sft_generate_example(eval, data)
     instruction = example["instruction"]
 
     fabric.print(instruction)
     prompt = data.prompt_style.apply(prompt=instruction, **example)
     encoded = tokenizer.encode(prompt, device=fabric.device)
+
+    graph_positional_encodings = None
+    if linearized_graph := example.get("linearized_graph"):
+        graph_positional_encodings = graph_positional_encoder(
+            linearized_graph,
+            model.config.n_embd,
+            train.k,
+            encoded.size(0)
+        ).to(encoded.device)
+
     model.eval()
 
     max_returned_tokens = len(encoded) + eval.max_new_tokens
@@ -480,7 +491,12 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
             # do not set `max_seq_length=max_returned_token` because memory is not a concern here
             model.set_kv_cache(batch_size=1)
         output = generate(
-            model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+            model,
+            encoded,
+            max_returned_tokens=max_returned_tokens,
+            temperature=0.8,
+            eos_id=tokenizer.eos_id,
+            graph_positional_encodings=graph_positional_encodings,
         )
         model.clear_kv_cache()
         model.train()

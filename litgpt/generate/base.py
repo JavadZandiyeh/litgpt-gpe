@@ -78,9 +78,10 @@ def next_token(
     input_pos: torch.Tensor,
     x: torch.Tensor,
     input_pos_maxp1: Optional[int] = None,
+    graph_positional_encodings: Optional[torch.Tensor] = None,
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
-    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
+    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1, graph_positional_encodings=graph_positional_encodings)
     _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
     return _next
 
@@ -138,6 +139,7 @@ def generate_fn(
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
+    graph_positional_encodings: Optional[torch.Tensor] = None,
 ) -> Iterator[torch.Tensor]:
     """
     Generates tokens for a single prompt.
@@ -152,6 +154,7 @@ def generate_fn(
         stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
         include_prompt: Whether to output the prompt tokens.
         include_eos: Whether to output the stop tokens if generation stops early.
+        graph_positional_encodings: Optional. Derived from the graph structure in graph-based datasets.
     """
 
     prompt_size = prompt.size(0)
@@ -191,7 +194,9 @@ def generate_fn(
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
+            graph_positional_encodings=graph_positional_encodings,
         )
+        graph_positional_encodings = None  # Only use it in the first token generation
         tokens.append(token)
         int_token = token.item()
 
@@ -381,6 +386,7 @@ def generate(
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
     include_prompt: bool = True,
+    graph_positional_encodings: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -408,6 +414,7 @@ def generate(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
+        graph_positional_encodings: Optional. Derived from the graph structure in graph-based datasets.
     """
 
     token_list = list(
@@ -421,6 +428,7 @@ def generate(
             top_k=top_k,
             top_p=top_p,
             stop_tokens=(([eos_id],) if eos_id is not None else ()),
+            graph_positional_encodings=graph_positional_encodings,
         )
     )
 
