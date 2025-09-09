@@ -69,7 +69,7 @@ class MolHIV(DataModule):
 
         list_data = [
             {
-                "instruction": "Classify the provided HIV molecule into \"active\" or \"inactive\"",
+                "instruction": "Classify the provided HIV molecule into \"active\" or \"inactive\". Respond with only one word: \"active\" or \"inactive\".",
                 "linearized_graph": smile,
                 "output": activity
             }

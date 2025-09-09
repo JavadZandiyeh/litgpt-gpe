@@ -452,7 +452,9 @@ def validate(
         if k >= eval.max_iters:
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
-        logits = model(input_ids)
+        graph_positional_encodings = batch.get("graph_positional_encodings")
+
+        logits = model(input_ids, graph_positional_encodings=graph_positional_encodings)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
 
     val_loss = losses.mean()
