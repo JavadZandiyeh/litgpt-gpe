@@ -947,7 +947,7 @@ def graph_positional_encoder(smiles: str, n_embd: int, k: int, p: int) -> torch.
     _, U = np.linalg.eigh(L_S)  # (n, n)
     """ Node-level positional encoding """
     k = min(k, n)
-    Phi = U[:, :k]  # (n, k)
+    Phi = U[:, -k:]  # (n, k)
     PE = np.hstack((Phi.real, Phi.imag))  # (n, 2k)
     """ HIV graph positional encoding"""
     PE = torch.from_numpy(PE).float()  # (n, 2k)

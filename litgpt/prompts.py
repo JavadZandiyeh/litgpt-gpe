@@ -379,7 +379,7 @@ class HIVMolecule2Activity(PromptStyle):
         prompt_style += f"[Instruction] {prompt}\n"
         prompt_style += "[Input: HIVMolecule]\n"
         prompt_style += f"{kwargs["linearized_graph"]}\n"
-        prompt_style += "[Output: Text]"
+        prompt_style += "[Output: Text]\n"
         return prompt_style
 
 
